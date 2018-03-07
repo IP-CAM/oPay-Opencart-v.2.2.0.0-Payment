@@ -87,7 +87,7 @@ class ControllerPaymentAllpay extends Controller {
 							array(
 								'Name' => $this->language->get('allpay_text_item_name'),
 								'Price' => $aio->Send['TotalAmount'],
-								//'Currency' => $_SESSION['currency'],
+                                'Currency' => $this->config->get('config_currency'),
 								'Quantity' => 1,
 								'URL' => ''
 							)
