@@ -78,6 +78,7 @@ class ControllerPaymentOpay extends Controller {
 						$aio->Send['ClientBackURL'] = str_replace('&amp;', '&', $this->url->link('account/order/info', 'order_id=' . $order_id, 'SSL'));
 						$aio->Send['MerchantTradeNo'] .= $order_id;
 						$aio->Send['MerchantTradeDate'] = date('Y/m/d H:i:s');
+						$aio->Send['NeedExtraPaidInfo'] = 'Y';
 						
 						# Set the product info
 						$aio->Send['TotalAmount'] = $this->model_payment_opay->formatOrderTotal($order['total']);
@@ -86,13 +87,13 @@ class ControllerPaymentOpay extends Controller {
 							array(
 								'Name' => $this->language->get('opay_text_item_name'),
 								'Price' => $aio->Send['TotalAmount'],
-								'Currency' => '',
+								'Currency' => $this->config->get('config_currency'),
 								'Quantity' => 1,
 								'URL' => ''
 							)
 						);
 						# Set the trade descriptions
-						$aio->Send['TradeDesc'] = 'OPay_module_opencart_1.2.0209';
+						$aio->Send['TradeDesc'] = 'OPay_module_opencart_1.2.0308';
 						
 						# Get the chosen payment and installment
 						$type_pieces = explode('_', $payment_type);
@@ -278,22 +279,47 @@ class ControllerPaymentOpay extends Controller {
 											$payment_result_comments,
 											true
 										);
-										
-										
-										// §PÂ_¹q¤lµo²¼¬O§_±Ò°Ê START
-										$nInvoice_Status  = $this->config->get('opayinvoice_status');
-										if($nInvoice_Status == 1)
+
+										// è‹¥ç‚ºä¿¡ç”¨å¡ å‰‡å¯«å…¥è³‡æ–™è¡¨ç´€éŒ„æä¾›é–‹ç«‹é›»å­ç™¼ç¥¨ä½¿ç”¨
+										if(isset($opay_feedback['card4no']) && !empty($opay_feedback['card4no']) && $opay_payment_method == PaymentMethod::Credit )
 										{
-											$this->load->model('payment/opayinvoice');
-											$nInvoice_Autoissue 	= $this->config->get('opayinvoice_autoissue');
-											$sCheck_Invoice_SDK	= $this->model_payment_opayinvoice->check_invoice_sdk();
-											if( $nInvoice_Autoissue == 1 && $sCheck_Invoice_SDK != false )
-											{	
-												$this->model_payment_opayinvoice->createInvoiceNo($cart_order_id, $sCheck_Invoice_SDK);
+											$nNow_Time  = time() ;
+
+											// å¯«å…¥ä¿¡ç”¨å¡å¾Œå››ç¢¼
+											$this->db->query("INSERT INTO `order_extend` (`order_id`, `card_no4`, `createdate`) VALUES ('" . $cart_order_id . "', '" . $opay_feedback['card4no'] . "', '" . $nNow_Time . "' )" );
+										}
+										
+										// åˆ¤æ–·é›»å­ç™¼ç¥¨æ˜¯å¦å•Ÿå‹• START
+
+										// Check E-Invoice model
+										$opay_invoice_status = $this->config->get('opayinvoice_status');
+										$ecpay_invoice_status = $this->config->get('ecpayinvoice_status');
+
+										// Get E-Invoice model name
+										$invoice_prefix = '';
+										if ($ecpay_invoice_status === '1' and is_null($opay_invoice_status) === true) {
+											$invoice_prefix = 'ecpay';
+										}
+										if ($opay_invoice_status === '1' and is_null($ecpay_invoice_status) === true) {
+											$invoice_prefix = 'opay';
+										}
+
+										// E-Invoice auto issuel
+										if ($invoice_prefix !== '')
+										{
+											$invoice_model_name = 'model_payment_' . $invoice_prefix . 'invoice';
+											
+											$this->load->model('payment/' . $invoice_prefix . 'invoice');
+
+											$invoice_autoissue = $this->config->get($invoice_prefix . 'invoice_autoissue');
+											$valid_invoice_sdk = $this->$invoice_model_name->check_invoice_sdk();
+											
+											if($invoice_autoissue === '1' and $valid_invoice_sdk != false)
+											{    
+										    		$this->$invoice_model_name->createInvoiceNo($cart_order_id, $valid_invoice_sdk);
 											}
 										}
-										// §PÂ_¹q¤lµo²¼¬O§_±Ò°Ê END
-	
+										// åˆ¤æ–·é›»å­ç™¼ç¥¨æ˜¯å¦å•Ÿå‹• END
 									}
 								}
 								break;
@@ -328,7 +354,7 @@ class ControllerPaymentOpay extends Controller {
 												true
 											);
 											
-											// §PÂ_¹q¤lµo²¼¬O§_±Ò°Ê START
+											// åˆ¤æ–·é›»å­ç™¼ç¥¨æ˜¯å¦å•Ÿå‹• START
 											$nInvoice_Status  = $this->config->get('opayinvoice_status');
 											if($nInvoice_Status == 1)
 											{
@@ -340,7 +366,7 @@ class ControllerPaymentOpay extends Controller {
 													$this->model_payment_opayinvoice->createInvoiceNo($cart_order_id, $sCheck_Invoice_SDK);
 												}
 											}
-											// §PÂ_¹q¤lµo²¼¬O§_±Ò°Ê END
+											// åˆ¤æ–·é›»å­ç™¼ç¥¨æ˜¯å¦å•Ÿå‹• END
 											
 										}
 									}
@@ -375,7 +401,7 @@ class ControllerPaymentOpay extends Controller {
 											);
 											
 											
-											// §PÂ_¹q¤lµo²¼¬O§_±Ò°Ê START
+											// åˆ¤æ–·é›»å­ç™¼ç¥¨æ˜¯å¦å•Ÿå‹• START
 											$nInvoice_Status  = $this->config->get('opayinvoice_status');
 											if($nInvoice_Status == 1)
 											{
@@ -387,7 +413,7 @@ class ControllerPaymentOpay extends Controller {
 													$this->model_payment_opayinvoice->createInvoiceNo($cart_order_id, $sCheck_Invoice_SDK);
 												}
 											}
-											// §PÂ_¹q¤lµo²¼¬O§_±Ò°Ê END
+											// åˆ¤æ–·é›»å­ç™¼ç¥¨æ˜¯å¦å•Ÿå‹• END
 										}
 									}
 								}
